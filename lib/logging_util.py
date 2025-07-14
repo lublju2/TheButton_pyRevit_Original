@@ -3,7 +3,7 @@
 logging_util
 ============
 Version   : 2.0
-Date      : 2025-06-17
+Date      : 2025-05-15
 Author    : AO
 
 A tiny helper that gives each script a **TimedRotatingFileHandler** pointing to

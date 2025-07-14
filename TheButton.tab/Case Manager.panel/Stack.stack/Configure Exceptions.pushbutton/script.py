@@ -2,19 +2,23 @@
 from __future__ import unicode_literals  # Ensure all string literals are Unicode (IronPython 2.7)
 __title__   = "Configure Exceptions"
 __doc__     = """Version = 1.7.2
-Date    = 22.05.2025
-________________________________________________________________
+Date    = July 2025
+========================================
 Description:
-A lightweight UI helper for maintaining **project-specific exception
-strings** used by the Change Register tool. It lets users add, edit or
-remove literals that must keep their exact capitalisation/spelling when
-sentence-case is applied.
+Interactive UI tool for managing **project-specific exception**
+strings used by the Change Register workflow. It lets you add,
+edit or delete literals that must retain their exact capitalization
+when applying sentence-case globally.
 ________________________________________________________________
 How-To:
-1. Press and figure out yourself!
+1. Click the button on the ribbon.
+2. Choose Add, Edit or Delete in the list picker.
+3. Follow the prompts to modify your exception list.
+4. Confirm changes in the popup messages.
+5. Run "Convert to Lowercase" to apply the changes. 
 ________________________________________________________________
 TODO:
-[FEATURE] - Any Suggestions
+[FEATURE] – Bulk import/export of exception lists
 ________________________________________________________________
 
 Author: AO"""
@@ -75,7 +79,7 @@ from logging_util import get_logger
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR   = os.path.dirname(__file__)
-LIB_DIR      = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "..", "..", "lib"))
+LIB_DIR      = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "..", "..","..","lib"))
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 

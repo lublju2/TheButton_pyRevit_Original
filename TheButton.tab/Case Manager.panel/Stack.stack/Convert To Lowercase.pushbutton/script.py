@@ -2,28 +2,25 @@
 from __future__ import unicode_literals     # Py2 – make all literals unicode
 __title__   = "Convert To Lowercase"
 __doc__     = """Version = 1.7.2
-Date    = 22.05.2025
-________________________________________________________________
+Date    = July 2025
+========================================
 Description:
-A text-clean-up tool for Revit.It walks every **TextNote** in the current document, 
-converts each sentence to strict sentence-case, then restores any strings listed in the three-tier
-exception system (default / system / project).
-________________________________________________________________
+A text-cleanup utility for Revit that iterates through every **TextNote**
+in the active document, applies strict sentence‐case to each sentence,
+and then restores any project, system or default exception literals to
+their original capitalization.
+========================================
 How-To:
-1. Press and hope for miracle!
-________________________________________________________________
-TODO:
-[FEATURE] - Any Suggestions
-________________________________________________________________
-
+1. Click the button on the ribbon.
+2. Wait for the script to process all TextNotes.
+3. Review the updated notes.
+4. If some instances are lowercased incorrectly - use "Configure Exceptions" script to add new exception.  
+========================================
 Author: AO"""
 
 """
 Convert To Lowercase
 ===============
-Version   : 1.7.2
-Date      : 2025-05-15
-Author    : AO
 
 A text-clean-up tool for Revit.
 It walks every **TextNote** in the current document, converts each sentence to
