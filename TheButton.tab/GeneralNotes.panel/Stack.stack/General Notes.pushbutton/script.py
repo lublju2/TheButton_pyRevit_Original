@@ -42,21 +42,15 @@ def read_excel_cell(path, sheet_name, addr):
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
-EXCEL_PATH = r"C:\\Users\\A.Osipova\\Desktop\\WORKING FOLDER\\TEST.xlsx"
-SHEET_NAME = "Sheet1"
-CELL_ADDR  = "D7"
+EXCEL_PATH = r"I:\\BLU - Service Delivery\\11 Innovations\\Parametrics\\00 - DIG1\\03 - Tools\\19 - General Notes (Excel to Revit)\\GenNotes-EWP-XX-XX-PS-S-General_Notes (version 1).xlsm"
+CELL_ADDR  = "J3"
 
-# This exact capitalization will be searched for in every TextNote
-KEY_PHRASE = "General notes notes"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Read replacement text from Excel
-# ─────────────────────────────────────────────────────────────────────────────
-NEW_TEXT = read_excel_cell(EXCEL_PATH, SHEET_NAME, CELL_ADDR)
-if NEW_TEXT is None:
-    from Autodesk.Revit.UI import TaskDialog
-    TaskDialog.Show("Error", u"Failed to read {0}!{1}".format(SHEET_NAME, CELL_ADDR))
-    sys.exit()
+# Dictionary mapping titles to their TextNote element IDs
+textbox_id = {
+    'General Notes': 471348,
+    'Structural Design Philosophy': 471349,
+    'Key Site Constraints': 471332,
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Load Revit API
@@ -67,7 +61,8 @@ from Autodesk.Revit.DB import (
     FilteredElementCollector,
     BuiltInCategory,
     TextNote,
-    Transaction
+    Transaction,
+    ElementId,
 )
 from Autodesk.Revit.UI import TaskDialog
 
@@ -77,26 +72,32 @@ from Autodesk.Revit.UI import TaskDialog
 uidoc = __revit__.ActiveUIDocument
 doc   = uidoc.Document
 
-notes = FilteredElementCollector(doc) \
-    .OfCategory(BuiltInCategory.OST_TextNotes) \
-    .WhereElementIsNotElementType() \
-    .ToElements()
-
-log(u"📋  Found {0} TextNotes.".format(len(notes)))
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Replace any note containing our key phrase
+# Read from Excel and replace TextNotes
 # ─────────────────────────────────────────────────────────────────────────────
 tx = Transaction(doc, "Replace TextNotes from Excel")
 tx.Start()
 replaced = 0
 
-for note in notes:
-    text = note.Text or ""
-    if KEY_PHRASE in text:
-        log(u"🔄  Replacing TextNote Id={0}".format(note.Id.IntegerValue))
-        note.Text = NEW_TEXT
-        replaced += 1
+for title, element_id in textbox_id.items():
+    try:
+        # Read from Excel sheet
+        sheet_name = title.title()  # Convert to titlecase
+        text = read_excel_cell(EXCEL_PATH, sheet_name, CELL_ADDR)
+        if text is None:
+            log(u"❌  Failed to read {0}!{1}".format(sheet_name, CELL_ADDR))
+            continue
+        
+        # Get the specific TextNote by its element ID
+        note = doc.GetElement(ElementId(element_id))
+        if note and isinstance(note, TextNote):
+            log(u"🔄  Replacing TextNote '{0}' (Id={1})".format(title, element_id))
+            note.Text = text
+            replaced += 1
+        else:
+            log(u"⚠️  TextNote '{0}' (Id={1}) not found or not a TextNote".format(title, element_id))
+    except Exception as ex:
+        log(u"❌  Error replacing TextNote '{0}' (Id={1}): {2}".format(title, element_id, ex))
 
 tx.Commit()
 
