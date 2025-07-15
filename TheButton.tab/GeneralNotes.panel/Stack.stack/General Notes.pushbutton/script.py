@@ -29,7 +29,7 @@ def read_excel_cell(path, sheet_name, addr):
         wb = app.Workbooks.Open(path)
         ws = wb.Sheets.Item[sheet_name]
         val = ws.Range[addr].Value2
-        log(u"✅  Read {0}!{1}: {2}".format(sheet_name, addr, val))
+        log(u"✅  Read {0}!{1}: {2}".format(sheet_name, addr, val[:50]+'...' if isinstance(val, str) and len(val) > 50 else val))
     except Exception as ex:
         log(u"❌  Excel read error: {0}".format(ex))
         val = None
