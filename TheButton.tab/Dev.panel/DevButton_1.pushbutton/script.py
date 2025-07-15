@@ -1,28 +1,9 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals     # IronPython 2.7 compatibility
-__title__   = "Issue Sheet Generator with Project No."
-__doc__     = """Version = 1.0.0
-Date    = July 2025
-========================================
-Description:
-Generates Issue Sheets for projects using the BIM Number
-sheet numbering scheme. Collects all sheets marked
-"Appears In Sheet List" and populates an Excel template
-========================================
-How-To:
-1. Click the button on the ribbon.
-2. In the Save File dialog, select where to save the Issue Sheet.
-3. Wait for the script to finish — its path will be printed in the console.
-
-**Important:**
-Make sure every sheet you want to include has the
-“Appears In Sheet List” flag enabled under Properties → Identity Data.
-========================================
-TODO:
-[FEATURE] – Preview changes before applying
-[ENHANCEMENT] – Allow scope filtering by view or category
-========================================
-Author: AO"""
+"""
+Standalone Revision Report Generator for Revit 2024.
+Removes pyRevit dependencies and retains full logic.
+Compatible with IronPython 2.7.11.
+"""
 
 import os
 import shutil
@@ -52,9 +33,9 @@ from Autodesk.Revit.UI import TaskDialog
 # -- Helper functions --
 
 def current_date():
-    """Return current date as 'DDMMYY'."""
+    """Return current date as 'YYYY-MM-DD'."""
     from System import DateTime
-    return DateTime.Now.ToString("ddMMyy")
+    return DateTime.Now.ToString("yyyy-MM-dd")
 
 
 def get_rev_number(revision, sheet=None):
@@ -82,9 +63,9 @@ def save_file_dialog(init_dir):
     dialog.InitialDirectory = init_dir
     # Use .NET DateTime or fallback to Python datetime
     try:
-        timestamp = datetime.datetime.Now.ToString("ddMMyy")
+        timestamp = datetime.datetime.Now.ToString("yyyyMMdd_HHmmss")
     except AttributeError:
-        timestamp = datetime.datetime.now().strftime("%d%m%y")
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     dialog.FileName = "Issue Sheet_{0}.xlsx".format(timestamp)
     dialog.Filter = "Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*"
     dialog.Title = "Save Issue Sheet"
@@ -186,7 +167,7 @@ for s in all_sheets:
         revised_sheets.append(rs)
 
 # -- Prepare Excel report --
-template_path = r"I:\\BLU - Service Delivery\\04 Building Information Management\\07 The Button\\Project No_Issue Sheets\\Document Issue Sheet.xlsx"
+template_path = r"C:\Users\A.Osipova\Desktop\WORKING FOLDER\Document Issue Sheet.xlsx"
 save_path = save_file_dialog(os.path.dirname(template_path))
 if not save_path:
     sys.exit()
@@ -203,7 +184,7 @@ wb = excel.Workbooks.Open(save_path)
 for sheet_idx in range(1, wb.Sheets.Count + 1):
     ws = wb.Sheets.Item[sheet_idx]
     for idx, (_n, date_str, _c) in enumerate(rev_data):
-        d, m, y = [int(x) for x in re.findall(r'\\d+', date_str)]
+        d, m, y = [int(x) for x in re.findall(r'\d+', date_str)]
         col = excel_col_name(3 + idx)
         ws.Range[col + "6"].Value2 = d
         ws.Range[col + "7"].Value2 = m
@@ -243,22 +224,10 @@ for chunk_idx in range(0, len(revised_sheets), chunk_size):
                         ws.Range["{0}{1}".format(col, row)].Value2 = label
                         break
 
-# -- Save, close and fully release Excel to unlock the file --
 wb.Save()
 wb.Close(False)
 excel.Quit()
-
-# Release COM objects
 Marshal.ReleaseComObject(wb)
 Marshal.ReleaseComObject(excel)
-wb = None
-excel = None
-
-import System
-# Force .NET garbage collection to finalize COM releases
-System.GC.Collect()
-System.GC.WaitForPendingFinalizers()
-System.GC.Collect()
-System.GC.WaitForPendingFinalizers()
 
 print "Revision report saved to: {0}".format(save_path)

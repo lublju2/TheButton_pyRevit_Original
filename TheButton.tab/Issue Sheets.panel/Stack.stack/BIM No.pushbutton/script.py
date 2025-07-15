@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals  # IronPython 2.7 compatibility
-__title__   = "Issue Sheet Generator with BIM No."
-__doc__     = """Version = 1.0.0
+
+__title__ = "Issue Sheet Generator with BIM No."
+__doc__ = """Version = 1.0.0
 Date    = July 2025
 ========================================
 Description:
 Generates Issue Sheets using the BIM Number scheme.
-Collects all sheets marked "Appears In Sheet List' and populates an Excel template.
+Collects all sheets marked "Appears In Sheet List" and populates an Excel template.
 
 How-To:
 1. Click the button on the ribbon.
@@ -51,13 +52,16 @@ from Autodesk.Revit.UI import TaskDialog
 # -- Helper functions --
 
 def current_date():
-    """Return current date as 'YYYY-MM-DD'."""
+    """Return current date as 'DDMMYY' using .NET or fallback to Python."""
     from System import DateTime
-    return DateTime.Now.ToString("ddMMyy")
+    try:
+        return DateTime.Now.ToString("ddMMyy")
+    except:
+        return datetime.datetime.now().strftime("%d%m%y")
 
 
 def get_rev_number(revision, sheet=None):
-    """Retrieve the revision number on a sheet or sequence number."""
+    """Retrieve the revision number on a sheet or fallback to sequence number."""
     if sheet and isinstance(sheet, ViewSheet):
         return sheet.GetRevisionNumberOnSheet(revision.Id)
     if hasattr(revision, 'RevisionNumber'):
@@ -66,7 +70,7 @@ def get_rev_number(revision, sheet=None):
 
 
 def excel_col_name(n):
-    """Convert zero-based index to Excel column name."""
+    """Convert zero-based index to Excel column name (A, B, …, AA, AB, …)."""
     name = ''
     while n >= 0:
         n, r = divmod(n, 26)
@@ -79,12 +83,7 @@ def save_file_dialog(init_dir):
     """Show a standard Save File dialog and return chosen file path or None."""
     dialog = SaveFileDialog()
     dialog.InitialDirectory = init_dir
-    # Use .NET DateTime or fallback to Python datetime
-    try:
-        timestamp = datetime.datetime.Now.ToString("ddMMyy")
-    except AttributeError:
-        timestamp = datetime.datetime.now().strftime("%d%m%y")
-    dialog.FileName = "Issue Sheet_{0}.xlsx".format(timestamp)
+    dialog.FileName = "Issue Sheet_{0}.xlsx".format(current_date())
     dialog.Filter = "Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*"
     dialog.Title = "Save Issue Sheet"
     result = dialog.ShowDialog()
@@ -92,11 +91,12 @@ def save_file_dialog(init_dir):
         return dialog.FileName
     return None
 
+
 # -- Revit context --
 uidoc = __revit__.ActiveUIDocument
 doc = uidoc.Document
 
-# -- Collect all sheets and revisions --
+# -- Collect all sheets and revision elements --
 all_sheets = sorted(
     FilteredElementCollector(doc)
         .OfCategory(BuiltInCategory.OST_Sheets)
@@ -128,7 +128,7 @@ for rev in all_revisions:
     rev_data.append((num, d, rev.Description))
 rev_data.sort(key=lambda x: x[0])
 
-# -- Class to represent a sheet with revisions --
+# -- Class to represent a sheet with its revisions --
 class RevisedSheet(object):
     def __init__(self, sheet):
         self._sheet = sheet
@@ -140,7 +140,7 @@ class RevisedSheet(object):
     def _find_clouds(self):
         """Collect all revision clouds visible on the sheet."""
         view_ids = [self._sheet.Id] + \
-            [doc.GetElement(vp).ViewId for vp in self._sheet.GetAllViewports()]
+                   [doc.GetElement(vp).ViewId for vp in self._sheet.GetAllViewports()]
         for c in all_clouds:
             if c.OwnerViewId in view_ids:
                 self._clouds.append(c)
@@ -165,8 +165,11 @@ class RevisedSheet(object):
     def get_drawing_number(self):
         """Construct drawing number from project and sheet parameters."""
         proj_info = doc.ProjectInformation
-        # Use EWP_Project_BIM Number instead of default Project Number
-        proj_fields = ['EWP_Project_BIM Number', 'EWP_Project_Originator Code', 'EWP_Project_Role Code']
+        proj_fields = [
+            'EWP_Project_BIM Number',
+            'EWP_Project_Originator Code',
+            'EWP_Project_Role Code'
+        ]
         parts = []
         for name in proj_fields:
             param = proj_info.LookupParameter(name)
@@ -174,17 +177,21 @@ class RevisedSheet(object):
                 value = param.AsString()
                 if value:
                     parts.append(value.strip())
-        sheet_fields = ['EWP_Sheet_Zone Code', 'EWP_Sheet_Level Code',
-                        'EWP_Sheet_Type Code', 'Sheet Number']
+
+        sheet_fields = [
+            'EWP_Sheet_Zone Code',
+            'EWP_Sheet_Level Code',
+            'EWP_Sheet_Type Code',
+            'Sheet Number'
+        ]
         for name in sheet_fields:
             param = self._sheet.LookupParameter(name)
             if param:
                 value = param.AsString()
                 if value:
                     parts.append(value.strip())
-        return "-".join(parts)
 
-# -- Filter valid sheets for the revision report -- "-".join(filter(None, parts))
+        return "-".join(parts)
 
 # -- Filter valid sheets for the revision report --
 revised_sheets = []
@@ -197,24 +204,28 @@ for s in all_sheets:
         revised_sheets.append(rs)
 
 # -- Prepare Excel report --
-template_path = r"C:\\Users\\A.Osipova\\Desktop\\WORKING FOLDER\\Document Issue Sheet.xlsx"
+template_path = r"I:\BLU - Service Delivery\04 Building Information Management\07 The Button\BIM_No_Issue_Sheets\Document Issue Sheet.xlsx"
 save_path = save_file_dialog(os.path.dirname(template_path))
 if not save_path:
     sys.exit()
 
 shutil.copy(template_path, save_path)
 
-# Instantiate Excel using ApplicationClass to avoid abstract interface error
+# -- Launch Excel and open the copied template --
 excel = Excel.ApplicationClass()
 excel.Visible = False
 excel.DisplayAlerts = False
 wb = excel.Workbooks.Open(save_path)
 
-# -- Fill revision dates in template --
+# -- Fill revision dates in the template --
 for sheet_idx in range(1, wb.Sheets.Count + 1):
     ws = wb.Sheets.Item[sheet_idx]
     for idx, (_n, date_str, _c) in enumerate(rev_data):
-        d, m, y = [int(x) for x in re.findall(r'\\d+', date_str)]
+        # Extract digit groups for day, month, year
+        nums = re.findall(r'\d+', date_str)
+        if len(nums) != 3:
+            continue
+        d, m, y = map(int, nums)
         col = excel_col_name(3 + idx)
         ws.Range[col + "6"].Value2 = d
         ws.Range[col + "7"].Value2 = m
@@ -224,7 +235,7 @@ for sheet_idx in range(1, wb.Sheets.Count + 1):
 chunk_size = 27
 for chunk_idx in range(0, len(revised_sheets), chunk_size):
     ws = wb.Sheets.Item[chunk_idx // chunk_size + 1]
-    block = revised_sheets[chunk_idx: chunk_idx + chunk_size]
+    block = revised_sheets[chunk_idx:chunk_idx + chunk_size]
     for i, rs in enumerate(block):
         row = 10 + i
         ws.Range["A{0}".format(row)].Value2 = rs.get_drawing_number()
@@ -250,14 +261,25 @@ for chunk_idx in range(0, len(revised_sheets), chunk_size):
                 for j, (n, _, _) in enumerate(rev_data):
                     if n == rev_num:
                         col = excel_col_name(3 + j)
-                        # Use .format() instead of f-string for IronPython compatibility
                         ws.Range["{0}{1}".format(col, row)].Value2 = label
                         break
 
+# -- Save, close Excel, and release COM objects --
 wb.Save()
 wb.Close(False)
 excel.Quit()
+
+# Release COM objects
 Marshal.ReleaseComObject(wb)
 Marshal.ReleaseComObject(excel)
+wb = None
+excel = None
+
+# Force .NET garbage collection to unlock the file
+import System
+System.GC.Collect()
+System.GC.WaitForPendingFinalizers()
+System.GC.Collect()
+System.GC.WaitForPendingFinalizers()
 
 print "Revision report saved to: {0}".format(save_path)
