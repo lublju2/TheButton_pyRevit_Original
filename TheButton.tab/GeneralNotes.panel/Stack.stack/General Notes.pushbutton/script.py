@@ -71,12 +71,13 @@ def read_excel_worksheets(path):
 EXCEL_PATH = r"I:\\BLU - Service Delivery\\11 Innovations\\Parametrics\\00 - DIG1\\03 - Tools\\19 - General Notes (Excel to Revit)\\GenNotes-EWP-XX-XX-PS-S-General_Notes (version 1).xlsm"
 
 # Layout settings
-START_X = 0.0        # Starting X position
-START_Y = 0.0        # Starting Y position
-TITLE_SPACING = 0.5  # Space between title and content
-SECTION_SPACING = 1.0  # Space between sections
-COLUMN_WIDTH = 8.0   # Width of each column
-PAGE_HEIGHT = 11.0   # Height of page before starting new column
+START_X = 8.883660091     # Starting X position (top left corner)
+START_Y = 4.440310784     # Starting Y position (top left corner)
+TITLE_SPACING = 0.5       # Space between title and content
+SECTION_SPACING = 1.0     # Space between sections
+COLUMN_WIDTH = 8.0        # Width of each column
+PAGE_HEIGHT = 11.0        # Height of page before starting new column
+TEXT_WIDTH = 0.3          # Width constraint for text notes
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -152,6 +153,18 @@ try:
         TaskDialog.Show("Error", "No text note types found in the document.")
         sys.exit()
 
+    # Validate and adjust text width for both types
+    title_min_width = TextNote.GetMinimumAllowedWidth(doc, title_type.Id)
+    title_max_width = TextNote.GetMaximumAllowedWidth(doc, title_type.Id)
+    title_width = max(title_min_width, min(TEXT_WIDTH, title_max_width))
+    
+    content_min_width = TextNote.GetMinimumAllowedWidth(doc, content_type.Id)
+    content_max_width = TextNote.GetMaximumAllowedWidth(doc, content_type.Id)
+    content_width = max(content_min_width, min(TEXT_WIDTH, content_max_width))
+    
+    log(u"📏  Title width: {0} (min: {1}, max: {2})".format(title_width, title_min_width, title_max_width))
+    log(u"📏  Content width: {0} (min: {1}, max: {2})".format(content_width, content_min_width, content_max_width))
+
     current_y = START_Y
     current_column = 0
     created_notes = 0
@@ -169,7 +182,7 @@ try:
         title_options = TextNoteOptions()
         title_options.TypeId = title_type.Id
 
-        title_note = TextNote.Create(doc, doc.ActiveView.Id, title_point, data['title'], title_options)
+        title_note = TextNote.Create(doc, doc.ActiveView.Id, title_point, title_width, data['title'], title_options)
         current_y -= TITLE_SPACING
         created_notes += 1
 
@@ -178,7 +191,7 @@ try:
         content_options = TextNoteOptions()
         content_options.TypeId = content_type.Id
 
-        content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, data['content'], content_options)
+        content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'], content_options)
         current_y -= SECTION_SPACING
         created_notes += 1
 
@@ -198,6 +211,8 @@ except Exception as ex:
     # Get full traceback
     import traceback
     tb = traceback.format_exc()
+
+    log(u"❌  Error creating TextNotes: {0}".format(tb))
 
     # Show full traceback in a dialog
     TaskDialog.Show(
