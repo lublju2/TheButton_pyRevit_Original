@@ -73,8 +73,8 @@ EXCEL_PATH = r"I:\\BLU - Service Delivery\\11 Innovations\\Parametrics\\00 - DIG
 # Layout settings
 START_X = 8.883660091           # Starting X position (top left corner)
 START_Y = 4.440310784           # Starting Y position (top left corner)
-SECTION_SPACING = 0.01          # Small gap between title and content
-INTER_SECTION_SPACING = 0.2     # Gap between sections
+SECTION_SPACING = 0.002         # Small gap between title and content
+INTER_SECTION_SPACING = 0.1     # Gap between sections
 COLUMN_WIDTH = 8.0              # Width of each column
 PAGE_HEIGHT = 11.0              # Height of page before starting new column
 TEXT_WIDTH = 0.3                # Width constraint for text notes
@@ -102,6 +102,7 @@ from Autodesk.Revit.UI import TaskDialog
 # ─────────────────────────────────────────────────────────────────────────────
 def calculate_text_note_height(text_note_type, text_content, text_width):
     """Calculate the height of a TextNote based on its type and content, processing paragraph by paragraph."""
+    # Cannot simply be extracted from the TextNote because that information is not available until the transaction is committed. Therefore we need to estimate it based on the TextNoteType parameters and the content.
     try:
         # Get text size from the TextNoteType
         text_size_param = text_note_type.get_Parameter(BuiltInParameter.TEXT_SIZE)
@@ -111,13 +112,13 @@ def calculate_text_note_height(text_note_type, text_content, text_width):
             log(u"⚠️  No TEXT_SIZE parameter found for TextNoteType '{0}'".format(text_note_type.Name))
             text_size = 0.1  # fallback text size
         
-        # Calculate line height (typically 1.2 times the text size)
-        line_height = text_size * 1.2
+        # Estimate line height including spacing
+        line_height = text_size * 1.6
         
-        # Estimate character width (rough approximation)
+        # Estimated width of each character
         avg_char_width = text_size * 0.55
         
-        # Calculate approximate characters per line
+        # Calculate approximate characters per line 
         chars_per_line = max(1, int(text_width / avg_char_width))
         
         # Split text into paragraphs
