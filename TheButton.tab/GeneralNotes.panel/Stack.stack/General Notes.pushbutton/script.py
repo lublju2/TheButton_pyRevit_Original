@@ -71,13 +71,13 @@ def read_excel_worksheets(path):
 EXCEL_PATH = r"I:\\BLU - Service Delivery\\11 Innovations\\Parametrics\\00 - DIG1\\03 - Tools\\19 - General Notes (Excel to Revit)\\GenNotes-EWP-XX-XX-PS-S-General_Notes (version 1).xlsm"
 
 # Layout settings
-START_X = 8.883660091     # Starting X position (top left corner)
-START_Y = 4.440310784     # Starting Y position (top left corner)
-SECTION_SPACING = 0.1     # Small gap between title and content
-INTER_SECTION_SPACING = 0.3  # Gap between sections
-COLUMN_WIDTH = 8.0        # Width of each column
-PAGE_HEIGHT = 11.0        # Height of page before starting new column
-TEXT_WIDTH = 0.3          # Width constraint for text notes
+START_X = 8.883660091           # Starting X position (top left corner)
+START_Y = 4.440310784           # Starting Y position (top left corner)
+SECTION_SPACING = 0.01          # Small gap between title and content
+INTER_SECTION_SPACING = 0.2     # Gap between sections
+COLUMN_WIDTH = 8.0              # Width of each column
+PAGE_HEIGHT = 11.0              # Height of page before starting new column
+TEXT_WIDTH = 0.3                # Width constraint for text notes
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ def calculate_text_note_height(text_note_type, text_content, text_width):
         line_height = text_size * 1.2
         
         # Estimate character width (rough approximation)
-        avg_char_width = text_size * 0.6
+        avg_char_width = text_size * 0.55
         
         # Calculate approximate characters per line
         chars_per_line = max(1, int(text_width / avg_char_width))
@@ -168,10 +168,37 @@ if not worksheets_data:
 uidoc = __revit__.ActiveUIDocument
 doc = uidoc.Document
 
+def delete_all_textnotes(doc):
+    """Delete all TextNotes from the current view."""
+    try:
+        # Get all TextNotes in the current view
+        text_notes = FilteredElementCollector(doc, doc.ActiveView.Id) \
+            .OfClass(TextNote) \
+            .ToElements()
+        
+        deleted_count = 0
+        if text_notes:
+            log(u"🗑️  Found {0} existing TextNotes to delete".format(len(text_notes)))
+            for note in text_notes:
+                doc.Delete(note.Id)
+                deleted_count += 1
+            log(u"✅  Deleted {0} existing TextNotes".format(deleted_count))
+        else:
+            log(u"ℹ️  No existing TextNotes found to delete")
+        
+        return deleted_count
+        
+    except Exception as ex:
+        log(u"⚠️  Error deleting TextNotes: {0}".format(ex))
+        return 0
+
 tx = Transaction(doc, "Create TextNotes from Excel")
 tx.Start()
 
 try:
+    # Delete all existing TextNotes first
+    delete_all_textnotes(doc)
+    
     # Get text note types (styles)
     title_type = None
     content_type = None
