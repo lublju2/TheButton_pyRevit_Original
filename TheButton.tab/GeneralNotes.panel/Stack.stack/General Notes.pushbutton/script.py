@@ -73,10 +73,11 @@ EXCEL_PATH = r"I:\\BLU - Service Delivery\\11 Innovations\\Parametrics\\00 - DIG
 # Layout settings
 START_X = 8.883660091           # Starting X position (top left corner)
 START_Y = 4.440310784           # Starting Y position (top left corner)
+BOTTOM_Y = 2.794031111          # Bottom Y position of the page
 SECTION_SPACING = 0.002         # Small gap between title and content
 INTER_SECTION_SPACING = 0.1     # Gap between sections
-COLUMN_WIDTH = 8.0              # Width of each column
-PAGE_HEIGHT = 11.0              # Height of page before starting new column
+COLUMN_WIDTH = 0.4             # Width of each column
+PAGE_HEIGHT = START_Y - BOTTOM_Y  # Calculate page height from coordinates
 TEXT_WIDTH = 0.3                # Width constraint for text notes
 
 
@@ -255,7 +256,7 @@ try:
 
     for data in worksheets_data:
         # Check if we need to start a new column
-        if current_y > PAGE_HEIGHT:
+        if current_y < BOTTOM_Y:
             current_column += 1
             current_y = START_Y
 
