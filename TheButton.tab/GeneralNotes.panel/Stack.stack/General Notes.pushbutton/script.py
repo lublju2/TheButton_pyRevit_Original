@@ -73,8 +73,8 @@ EXCEL_PATH = r"I:\\BLU - Service Delivery\\11 Innovations\\Parametrics\\00 - DIG
 # Layout settings
 START_X = 8.883660091     # Starting X position (top left corner)
 START_Y = 4.440310784     # Starting Y position (top left corner)
-TITLE_SPACING = 0.5       # Space between title and content
-SECTION_SPACING = 1.0     # Space between sections
+SECTION_SPACING = 0.1     # Small gap between title and content
+INTER_SECTION_SPACING = 0.3  # Gap between sections
 COLUMN_WIDTH = 8.0        # Width of each column
 PAGE_HEIGHT = 11.0        # Height of page before starting new column
 TEXT_WIDTH = 0.3          # Width constraint for text notes
@@ -95,6 +95,62 @@ from Autodesk.Revit.DB import (
     BuiltInParameter
 )
 from Autodesk.Revit.UI import TaskDialog
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper function to calculate TextNote height
+# ─────────────────────────────────────────────────────────────────────────────
+def calculate_text_note_height(text_note_type, text_content, text_width):
+    """Calculate the height of a TextNote based on its type and content, processing paragraph by paragraph."""
+    try:
+        # Get text size from the TextNoteType
+        text_size_param = text_note_type.get_Parameter(BuiltInParameter.TEXT_SIZE)
+        if text_size_param:
+            text_size = text_size_param.AsDouble()
+        else:
+            log(u"⚠️  No TEXT_SIZE parameter found for TextNoteType '{0}'".format(text_note_type.Name))
+            text_size = 0.1  # fallback text size
+        
+        # Calculate line height (typically 1.2 times the text size)
+        line_height = text_size * 1.2
+        
+        # Estimate character width (rough approximation)
+        avg_char_width = text_size * 0.6
+        
+        # Calculate approximate characters per line
+        chars_per_line = max(1, int(text_width / avg_char_width))
+        
+        # Split text into paragraphs
+        if text_content:
+            paragraphs = text_content.split('\n')
+        else:
+            paragraphs = ['']
+        
+        total_lines = 0
+        
+        # Calculate lines for each paragraph
+        for paragraph in paragraphs:
+            if paragraph.strip():  # Non-empty paragraph
+                paragraph_length = len(paragraph.strip())
+                paragraph_lines = max(1, (paragraph_length + chars_per_line - 1) // chars_per_line)
+                total_lines += paragraph_lines
+                log(u"📏  Paragraph '{0}...' length: {1}, lines: {2}".format(
+                    paragraph[:20], paragraph_length, paragraph_lines))
+            else:  # Empty paragraph (line break)
+                total_lines += 1
+                log(u"📏  Empty paragraph (line break): 1 line")
+        
+        # Calculate total height
+        total_height = total_lines * line_height
+        
+        log(u"📏  Text size: {0}, Line height: {1}, Chars per line: {2}, Total lines: {3}, Total height: {4}".format(
+            text_size, line_height, chars_per_line, total_lines, total_height))
+        
+        return total_height
+        
+    except Exception as ex:
+        log(u"⚠️  Error calculating TextNote height: {0}".format(ex))
+        return 0.2  # fallback height
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -183,8 +239,12 @@ try:
         title_options.TypeId = title_type.Id
 
         title_note = TextNote.Create(doc, doc.ActiveView.Id, title_point, title_width, data['title'], title_options)
-        current_y -= TITLE_SPACING
         created_notes += 1
+        
+        # Calculate height of title note and adjust Y position
+        title_height = calculate_text_note_height(title_type, data['title'], title_width)
+        current_y -= (title_height + SECTION_SPACING)
+        log(u"📏  Title '{0}' height: {1}".format(data['title'], title_height))
 
         # Create content TextNote
         content_point = XYZ(current_x, current_y, 0)
@@ -192,10 +252,14 @@ try:
         content_options.TypeId = content_type.Id
 
         content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'], content_options)
-        current_y -= SECTION_SPACING
         created_notes += 1
+        
+        # Calculate height of content note and adjust Y position for next section
+        content_height = calculate_text_note_height(content_type, data['content'], content_width)
+        current_y -= (content_height + INTER_SECTION_SPACING)
+        log(u"📏  Content height: {0}".format(content_height))
 
-        log(u"📝  Created notes for '{0}'".format(data['title']))
+        log(u"📝  Created notes for '{0}' at Y: {1}".format(data['title'], current_y))
 
     tx.Commit()
     log(u"✅  Done. Created {0} TextNotes.".format(created_notes))
