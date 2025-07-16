@@ -143,7 +143,7 @@ try:
         # Match by that name
         if name == 'EWP_3.5mm Arrow Masking':
             title_type = t
-        elif name == 'EWP_3.5mm Arrow':
+        elif name == 'EWP_2.5mm Arrow':
             content_type = t
 
     if not title_type or not content_type:
