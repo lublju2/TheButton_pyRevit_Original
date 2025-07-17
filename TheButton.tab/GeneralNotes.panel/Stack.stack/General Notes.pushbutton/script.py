@@ -139,17 +139,17 @@ def calculate_text_note_height(text_note_type, text_content, text_width):
                 paragraph_length = len(paragraph.strip())
                 paragraph_lines = max(1, (paragraph_length + chars_per_line - 1) // chars_per_line)
                 total_lines += paragraph_lines
-                log(u"📏  Paragraph '{0}...' length: {1}, lines: {2}".format(
-                    paragraph[:20], paragraph_length, paragraph_lines))
+                # log(u"📏  Paragraph '{0}...' length: {1}, lines: {2}".format(
+                #     paragraph[:20], paragraph_length, paragraph_lines))
             else:  # Empty paragraph (line break)
                 total_lines += 1
-                log(u"📏  Empty paragraph (line break): 1 line")
+                # log(u"📏  Empty paragraph (line break): 1 line")
         
         # Calculate total height
         total_height = total_lines * line_height
         
-        log(u"📏  Text size: {0}, Line height: {1}, Chars per line: {2}, Total lines: {3}, Total height: {4}".format(
-            text_size, line_height, chars_per_line, total_lines, total_height))
+        # log(u"📏  Text size: {0}, Line height: {1}, Chars per line: {2}, Total lines: {3}, Total height: {4}".format(
+        #     text_size, line_height, chars_per_line, total_lines, total_height))
         
         return total_height
         
@@ -301,8 +301,8 @@ try:
     content_max_width = TextNote.GetMaximumAllowedWidth(doc, content_type.Id)
     content_width = max(content_min_width, min(TEXT_WIDTH, content_max_width))
     
-    log(u"📏  Title width: {0} (min: {1}, max: {2})".format(title_width, title_min_width, title_max_width))
-    log(u"📏  Content width: {0} (min: {1}, max: {2})".format(content_width, content_min_width, content_max_width))
+    # log(u"📏  Title width: {0} (min: {1}, max: {2})".format(title_width, title_min_width, title_max_width))
+    # log(u"📏  Content width: {0} (min: {1}, max: {2})".format(content_width, content_min_width, content_max_width))
 
     current_y = START_Y
     current_column = 0
@@ -320,7 +320,7 @@ try:
         if not check_text_note_fits(current_y, total_section_height, BOTTOM_Y):
             current_column += 1
             current_y = START_Y
-            log(u"📄  Moving to column {0} for section '{1}'".format(current_column + 1, data['title']))
+            # log(u"📄  Moving to column {0} for section '{1}'".format(current_column + 1, data['title']))
 
         current_x = START_X + (current_column * COLUMN_WIDTH)
 
@@ -334,7 +334,7 @@ try:
         
         # Adjust Y position after title
         current_y -= (title_height + SECTION_SPACING)
-        log(u"📏  Title '{0}' height: {1}".format(data['title'], title_height))
+        # log(u"📏  Title '{0}' height: {1}".format(data['title'], title_height))
 
         # Create content TextNote
         content_point = XYZ(current_x, current_y, 0)
@@ -346,7 +346,7 @@ try:
         
         # Adjust Y position for next section
         current_y -= (content_height + INTER_SECTION_SPACING)
-        log(u"📏  Content height: {0}".format(content_height))
+        # log(u"📏  Content height: {0}".format(content_height))
 
         log(u"📝  Created notes for '{0}' at Y: {1}".format(data['title'], current_y))
 
