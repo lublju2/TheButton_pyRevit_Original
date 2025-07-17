@@ -167,49 +167,7 @@ def check_text_note_fits(current_y, text_height, bottom_boundary):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def find_excel_file(doc):
-    """Find the Excel file based on the current Revit document's location."""
-    try:
-        # Get current Revit document path
-        doc_path = doc.PathName
-        log(doc_path)
-        if doc_path:
-            log(u"📁  Current Revit file: {0}".format(doc_path))
-            
-            # Get the folder containing the Revit file
-            revit_folder = os.path.dirname(doc_path)
-            parent_folder = os.path.dirname(revit_folder)
-            
-            # Check if the expected structure exists
-            revit_folder_name = os.path.basename(revit_folder)
-            if (re.match(r'^00 Revit Model \(20\d{2}\)$', revit_folder_name) and
-                os.path.basename(parent_folder) == "01 Structural"):
-                
-                # Navigate to expected Excel location
-                ewp_folder = os.path.join(parent_folder, "01 Linked Files", "EWP")
-                if os.path.exists(ewp_folder):
-                    # Look for Excel file starting with "GenNotes"
-                    for file in os.listdir(ewp_folder):
-                        if file.startswith("GenNotes") and file.endswith(".xlsm"):
-                            excel_path = os.path.join(ewp_folder, file)
-                            log(u"✅  Found Excel file: {0}".format(excel_path))
-                            return excel_path
-        
-        # If automatic detection fails, prompt user for file path
-        log(u"⚠️  Automatic Excel file detection failed.")
-        log(u"ℹ️  Please note automatic file detection will not work if the file is open as detached")
-        log(u"📁  Expected folder structure:")
-        log(u"....📂 01 Structural")
-        log(u".....├── 📂 00 Revit Model (20XX)")
-        log(u".....│....└── 📄 [Current Revit file]")
-        log(u".....└── 📂 01 Linked Files")
-        log(u"..........└── 📂 EWP")
-        log(u"...............└── 📄 GenNotes[...].xlsm")
-        log(u"⚠️  Prompting user for manual file selection...")
-        return prompt_for_excel_file()
-        
-    except Exception as ex:
-        log(u"⚠️  Error during automatic Excel file detection: {0}".format(ex))
-        return prompt_for_excel_file()
+    return prompt_for_excel_file()
 
 def prompt_for_excel_file():
     """Prompt user to select the Excel file."""
