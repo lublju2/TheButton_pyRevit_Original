@@ -21,19 +21,54 @@ def log(msg):
 # ─────────────────────────────────────────────────────────────────────────────
 clr.AddReference('Microsoft.Office.Interop.Excel')
 import Microsoft.Office.Interop.Excel as Excel
+from System import Type, Activator, Array
+from System.Runtime.InteropServices import Marshal
+import System.Reflection
 
 def read_excel_worksheets(path):
     """Read all worksheets and their data from Excel."""
     log(u"📂  Opening Excel workbook: {0}".format(path))
-    app = Excel.ApplicationClass()
-    app.Visible = False
-    app.DisplayAlerts = False
+    
+    app = None
+    wb = None
     worksheets_data = []
 
     try:
-        wb = app.Workbooks.Open(path)
-        for ws in wb.Worksheets:
-            sheet_name = ws.Name
+        # Create Excel application using COM
+        excel_type = Type.GetTypeFromProgID("Excel.Application")
+        app = Activator.CreateInstance(excel_type)
+        
+        # Set properties using reflection for COM objects
+        app.GetType().InvokeMember("Visible", 
+                                   System.Reflection.BindingFlags.SetProperty, 
+                                   None, app, Array[object]([False]))
+        app.GetType().InvokeMember("DisplayAlerts", 
+                                   System.Reflection.BindingFlags.SetProperty, 
+                                   None, app, Array[object]([False]))
+        
+        # Get Workbooks collection and open file
+        workbooks = app.GetType().InvokeMember("Workbooks", 
+                                               System.Reflection.BindingFlags.GetProperty, 
+                                               None, app, None)
+        wb = workbooks.GetType().InvokeMember("Open", 
+                                              System.Reflection.BindingFlags.InvokeMethod, 
+                                              None, workbooks, Array[object]([path]))
+        
+        # Get Worksheets collection
+        worksheets = wb.GetType().InvokeMember("Worksheets", 
+                                               System.Reflection.BindingFlags.GetProperty, 
+                                               None, wb, None)
+        count = worksheets.GetType().InvokeMember("Count", 
+                                                  System.Reflection.BindingFlags.GetProperty, 
+                                                  None, worksheets, None)
+        
+        for i in range(1, count + 1):
+            ws = worksheets.GetType().InvokeMember("Item", 
+                                                   System.Reflection.BindingFlags.GetProperty, 
+                                                   None, worksheets, Array[object]([i]))
+            sheet_name = ws.GetType().InvokeMember("Name", 
+                                                   System.Reflection.BindingFlags.GetProperty, 
+                                                   None, ws, None)
 
             # Skip Splash Screen tab
             if sheet_name == 'Splash Screen':
@@ -41,17 +76,27 @@ def read_excel_worksheets(path):
                 continue
 
             # Check H1 cell
-            h1_value = ws.Range["H1"].Value2
+            h1_range = ws.GetType().InvokeMember("Range", 
+                                                 System.Reflection.BindingFlags.GetProperty, 
+                                                 None, ws, Array[object](["H1"]))
+            h1_value = h1_range.GetType().InvokeMember("Value2", 
+                                                       System.Reflection.BindingFlags.GetProperty, 
+                                                       None, h1_range, None)
             if h1_value != 'Yes':
                 log(u"⏭️  Skipping '{0}' tab (H1 = {1})".format(sheet_name, h1_value))
                 continue
 
             # Read J3 cell content
-            j3_value = ws.Range["J3"].Value2
+            j3_range = ws.GetType().InvokeMember("Range", 
+                                                 System.Reflection.BindingFlags.GetProperty, 
+                                                 None, ws, Array[object](["J3"]))
+            j3_value = j3_range.GetType().InvokeMember("Value2", 
+                                                       System.Reflection.BindingFlags.GetProperty, 
+                                                       None, j3_range, None)
             if j3_value:
                 worksheets_data.append({
                     'title': sheet_name,
-                    'content': j3_value
+                    'content': unicode(j3_value)
                 })
                 log(u"✅  Added '{0}' tab for processing".format(sheet_name))
             else:
@@ -60,9 +105,20 @@ def read_excel_worksheets(path):
     except Exception as ex:
         log(u"❌  Excel read error: {0}".format(ex))
     finally:
-        if 'wb' in locals():
-            wb.Close(False)
-        app.Quit()
+        # Clean up COM objects
+        try:
+            if wb is not None:
+                wb.GetType().InvokeMember("Close", 
+                                          System.Reflection.BindingFlags.InvokeMethod, 
+                                          None, wb, Array[object]([False]))
+                Marshal.ReleaseComObject(wb)
+            if app is not None:
+                app.GetType().InvokeMember("Quit", 
+                                           System.Reflection.BindingFlags.InvokeMethod, 
+                                           None, app, None)
+                Marshal.ReleaseComObject(app)
+        except:
+            pass
 
     return worksheets_data
 
