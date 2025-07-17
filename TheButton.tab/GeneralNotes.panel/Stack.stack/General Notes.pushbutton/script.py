@@ -287,9 +287,9 @@ try:
             content_type = t
 
     if not title_type or not content_type:
-        log(u"❌  No text note types available")
+        log(u"❌  Could not find the specified TextNoteTypes.")
         tx.RollBack()
-        TaskDialog.Show("Error", "No text note types found in the document.")
+        TaskDialog.Show("Error", "Could not find the specified TextNoteTypes.")
         sys.exit()
 
     # Validate and adjust text width for both types
@@ -348,7 +348,7 @@ try:
         current_y -= (content_height + INTER_SECTION_SPACING)
         # log(u"📏  Content height: {0}".format(content_height))
 
-        log(u"📝  Created notes for '{0}' at Y: {1}".format(data['title'], current_y))
+        log(u"📝  Created notes for '{0}' at X: {1} Y: {2}".format(data['title'], current_x, current_y))
 
     tx.Commit()
     log(u"✅  Done. Created {0} TextNotes.".format(created_notes))
