@@ -6,6 +6,8 @@
 from __future__ import unicode_literals     # IronPython 2.7 compatibility
 import clr
 import sys
+import os
+import re
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Simple console logger
@@ -68,7 +70,6 @@ def read_excel_worksheets(path):
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
-EXCEL_PATH = r"I:\\BLU - Service Delivery\\11 Innovations\\Parametrics\\00 - DIG1\\03 - Tools\\19 - General Notes (Excel to Revit)\\GenNotes-EWP-XX-XX-PS-S-General_Notes (version 1).xlsm"
 
 # Layout settings
 START_X = 8.883660091           # Starting X position (top left corner)
@@ -159,6 +160,133 @@ def check_text_note_fits(current_y, text_height, bottom_boundary):
     """Check if a TextNote would fit within the page boundaries."""
     return (current_y - text_height) >= bottom_boundary
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper function to find the Excel file
+# ─────────────────────────────────────────────────────────────────────────────
+
+def find_excel_file(doc):
+    """Find the Excel file based on the current Revit document's location."""
+    try:
+        # Get current Revit document path
+        doc_path = doc.PathName
+        if not doc_path:
+            TaskDialog.Show("Error", 
+                "Please save the Revit file first before running this script.")
+            return None
+        
+        log(u"📁  Current Revit file: {0}".format(doc_path))
+        
+        # Get the folder containing the Revit file
+        revit_folder = os.path.dirname(doc_path)
+        log(u"📁  Revit folder: {0}".format(revit_folder))
+        
+        # Go up one folder
+        parent_folder = os.path.dirname(revit_folder)
+        log(u"📁  Parent folder: {0}".format(parent_folder))
+        
+        # Check if the Revit file is in a folder named "00 Revit Model (20XX)"
+        revit_folder_name = os.path.basename(revit_folder)
+        if not re.match(r'^00 Revit Model \(20\d{2}\)$', revit_folder_name):
+            TaskDialog.Show("Folder Structure Error", 
+                "The Revit file should be placed in a folder named '00 Revit Model (20XX)'.\n\n" +
+                "Current location: {0}\n\n".format(revit_folder) +
+                "Expected structure:\n" +
+                "📁 01 Structural\n" +
+                "   📁 00 Revit Model (20XX)\n" +
+                "      📄 [Your Revit file]\n" +
+                "   📁 01 Linked Files\n" +
+                "      📁 EWP\n" +
+                "         📄 GenNotes*.xlsm")
+            return None
+        
+        # Check if parent folder is named "01 Structural"
+        if not os.path.basename(parent_folder) == "01 Structural":
+            TaskDialog.Show("Folder Structure Error", 
+                "The Revit file should be placed in a '00 Revit Model (20XX)' folder within '01 Structural'.\n\n" +
+                "Current location: {0}\n\n".format(parent_folder) +
+                "Expected structure:\n" +
+                "📁 01 Structural\n" +
+                "   📁 00 Revit Model (20XX)\n" +
+                "      📄 [Your Revit file]\n" +
+                "   📁 01 Linked Files\n" +
+                "      📁 EWP\n" +
+                "         📄 GenNotes*.xlsm")
+            return None
+        
+        # Navigate to "01 Linked Files" folder
+        linked_files_folder = os.path.join(parent_folder, "01 Linked Files")
+        if not os.path.exists(linked_files_folder):
+            TaskDialog.Show("Folder Structure Error", 
+                "The '01 Linked Files' folder was not found.\n\n" +
+                "Expected location: {0}\n\n".format(linked_files_folder) +
+                "Please create the following folder structure:\n" +
+                "📁 01 Structural\n" +
+                "   📁 00 Revit Model (20XX)\n" +
+                "      📄 [Your Revit file]\n" +
+                "   📁 01 Linked Files\n" +
+                "      📁 EWP\n" +
+                "         📄 GenNotes*.xlsm")
+            return None
+        
+        # Navigate to "EWP" folder
+        ewp_folder = os.path.join(linked_files_folder, "EWP")
+        if not os.path.exists(ewp_folder):
+            TaskDialog.Show("Folder Structure Error", 
+                "The 'EWP' folder was not found.\n\n" +
+                "Expected location: {0}\n\n".format(ewp_folder) +
+                "Please create the following folder structure:\n" +
+                "📁 01 Structural\n" +
+                "   📁 00 Revit Model (20XX)\n" +
+                "      📄 [Your Revit file]\n" +
+                "   📁 01 Linked Files\n" +
+                "      📁 EWP\n" +
+                "         📄 GenNotes*.xlsm")
+            return None
+        
+        # Look for Excel file starting with "GenNotes"
+        excel_files = []
+        for file in os.listdir(ewp_folder):
+            if file.startswith("GenNotes") and file.endswith(".xlsm"):
+                excel_files.append(file)
+        
+        if not excel_files:
+            TaskDialog.Show("Excel File Not Found", 
+                "No Excel file starting with 'GenNotes' and ending with '.xlsm' was found.\n\n" +
+                "Expected location: {0}\n\n".format(ewp_folder) +
+                "Please place the GenNotes Excel file in the EWP folder:\n" +
+                "📁 01 Structural\n" +
+                "   📁 00 Revit Model (20XX)\n" +
+                "      📄 [Your Revit file]\n" +
+                "   📁 01 Linked Files\n" +
+                "      📁 EWP\n" +
+                "         📄 GenNotes*.xlsm")
+            return None
+        
+        # Use the first matching Excel file
+        excel_file = excel_files[0]
+        excel_path = os.path.join(ewp_folder, excel_file)
+        
+        if len(excel_files) > 1:
+            log(u"⚠️  Multiple GenNotes files found, using: {0}".format(excel_file))
+        
+        log(u"✅  Found Excel file: {0}".format(excel_path))
+        return excel_path
+        
+    except Exception as ex:
+        log(u"❌  Error finding Excel file: {0}".format(ex))
+        TaskDialog.Show("Error", 
+            "Error finding Excel file: {0}".format(ex))
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Start up document and find Excel file
+# ─────────────────────────────────────────────────────────────────────────────
+uidoc = __revit__.ActiveUIDocument
+doc = uidoc.Document
+
+EXCEL_PATH = find_excel_file(doc)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Read Excel data
@@ -172,9 +300,6 @@ if not worksheets_data:
 # ─────────────────────────────────────────────────────────────────────────────
 # Create TextNotes in Revit
 # ─────────────────────────────────────────────────────────────────────────────
-uidoc = __revit__.ActiveUIDocument
-doc = uidoc.Document
-
 def delete_all_textnotes(doc):
     """Delete all TextNotes from the current view."""
     try:
