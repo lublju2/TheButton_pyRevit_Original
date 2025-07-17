@@ -147,6 +147,7 @@ ABBREV_Y = 4.357636613
 clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
 clr.AddReference('System.Windows.Forms')
+clr.AddReference('System.Drawing')
 from Autodesk.Revit.DB import (
     TextNote,
     Transaction,
@@ -158,11 +159,150 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog
 from System.Windows.Forms import OpenFileDialog, DialogResult
-
+from System.Windows.Forms import Form, Label, ComboBox, Button, DialogResult as WinFormsDialogResult, FormStartPosition, ComboBoxStyle
+from System.Drawing import Size, Point
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helper function to calculate TextNote height
+# Helper functions
 # ─────────────────────────────────────────────────────────────────────────────
+
+def find_excel_file(doc):
+    return prompt_for_excel_file()
+
+def prompt_for_excel_file():
+    """Prompt user to select the Excel file."""
+    try:
+        dialog = OpenFileDialog()
+        dialog.Title = "Select GenNotes Excel File"
+        dialog.Filter = "Excel Files (*.xlsm)|*.xlsm|All Files (*.*)|*.*"
+        dialog.FilterIndex = 1
+        dialog.Multiselect = False
+        
+        if dialog.ShowDialog() == DialogResult.OK:
+            excel_path = dialog.FileName
+            log(u"📁  User selected Excel file: {0}".format(excel_path))
+            
+            # Validate the selected file
+            if not os.path.exists(excel_path):
+                TaskDialog.Show("Error", "Selected file does not exist.")
+                return None
+            
+            if not excel_path.lower().endswith('.xlsm'):
+                TaskDialog.Show("Error", "Please select an Excel file with .xlsm extension.")
+                return None
+            
+            return excel_path
+        else:
+            log(u"❌  User cancelled file selection")
+            return None
+            
+    except Exception as ex:
+        log(u"❌  Error prompting for Excel file: {0}".format(ex))
+        TaskDialog.Show("Error", "Error opening file dialog: {0}".format(ex))
+        return None
+
+def delete_all_textnotes(doc):
+    """Delete all TextNotes from the current view."""
+    try:
+        # Get all TextNotes in the current view
+        text_notes = FilteredElementCollector(doc, doc.ActiveView.Id) \
+            .OfClass(TextNote) \
+            .ToElements()
+        
+        deleted_count = 0
+        if text_notes:
+            log(u"🗑️  Found {0} existing TextNotes to delete".format(len(text_notes)))
+            for note in text_notes:
+                doc.Delete(note.Id)
+                deleted_count += 1
+            log(u"✅  Deleted {0} existing TextNotes".format(deleted_count))
+        else:
+            log(u"ℹ️  No existing TextNotes found to delete")
+        
+        return deleted_count
+        
+    except Exception as ex:
+        log(u"⚠️  Error deleting TextNotes: {0}".format(ex))
+        return 0
+
+def select_text_note_type(available_types, type_purpose):
+    """Show a dialog to let user select a text note type."""
+    try:
+        # Create form
+        form = Form()
+        form.Text = "Select {0} Text Note Type".format(type_purpose)
+        form.Size = Size(450, 150)
+        form.StartPosition = FormStartPosition.CenterParent
+        
+        # Create label
+        label = Label()
+        label.Text = "Select {0} text note type:".format(type_purpose)
+        label.Location = Point(10, 10)
+        label.Size = Size(400, 20)
+        
+        # Create combo box
+        combo = ComboBox()
+        combo.Location = Point(10, 35)
+        combo.Size = Size(415, 25)
+        combo.DropDownStyle = ComboBoxStyle.DropDownList
+        
+        # Populate combo box with type names
+        type_names = []
+        for t in available_types:
+            try:
+                name = t.Name
+            except AttributeError:
+                param = t.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM)
+                if param:
+                    name = param.AsString()
+                else:
+                    name = u"<Unnamed TextNoteType>"
+            type_names.append(name)
+        
+        for name in type_names:
+            combo.Items.Add(name)
+        
+        if combo.Items.Count > 0:
+            combo.SelectedIndex = 0
+        
+        # Create OK button
+        ok_button = Button()
+        ok_button.Text = "OK"
+        ok_button.Location = Point(270, 70)
+        ok_button.Size = Size(75, 25)
+        ok_button.DialogResult = WinFormsDialogResult.OK
+        
+        # Create Cancel button
+        cancel_button = Button()
+        cancel_button.Text = "Cancel"
+        cancel_button.Location = Point(350, 70)
+        cancel_button.Size = Size(75, 25)
+        cancel_button.DialogResult = WinFormsDialogResult.Cancel
+        
+        # Add controls to form
+        form.Controls.Add(label)
+        form.Controls.Add(combo)
+        form.Controls.Add(ok_button)
+        form.Controls.Add(cancel_button)
+        form.AcceptButton = ok_button
+        form.CancelButton = cancel_button
+        
+        # Show dialog
+        result = form.ShowDialog()
+        
+        if result == WinFormsDialogResult.OK and combo.SelectedIndex >= 0:
+            selected_name = combo.SelectedItem.ToString()
+            # Find the corresponding TextNoteType
+            for i, t in enumerate(available_types):
+                if type_names[i] == selected_name:
+                    return t
+        
+        return None
+        
+    except Exception as ex:
+        log(u"❌  Error in text note type selection dialog: {0}".format(ex))
+        return None
+    
 def calculate_text_note_height(text_note_type, text_content, text_width):
     """Calculate the height of a TextNote based on its type and content, processing paragraph by paragraph."""
     # Cannot simply be extracted from the TextNote because that information is not available until the transaction is committed. Therefore we need to estimate it based on the TextNoteType parameters and the content.
@@ -228,90 +368,24 @@ def is_abbreviations_section(title):
     return any(keyword in title_lower for keyword in abbrev_keywords)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helper function to find the Excel file
+# Main logic
 # ─────────────────────────────────────────────────────────────────────────────
 
-def find_excel_file(doc):
-    return prompt_for_excel_file()
-
-def prompt_for_excel_file():
-    """Prompt user to select the Excel file."""
-    try:
-        dialog = OpenFileDialog()
-        dialog.Title = "Select GenNotes Excel File"
-        dialog.Filter = "Excel Files (*.xlsm)|*.xlsm|All Files (*.*)|*.*"
-        dialog.FilterIndex = 1
-        dialog.Multiselect = False
-        
-        if dialog.ShowDialog() == DialogResult.OK:
-            excel_path = dialog.FileName
-            log(u"📁  User selected Excel file: {0}".format(excel_path))
-            
-            # Validate the selected file
-            if not os.path.exists(excel_path):
-                TaskDialog.Show("Error", "Selected file does not exist.")
-                return None
-            
-            if not excel_path.lower().endswith('.xlsm'):
-                TaskDialog.Show("Error", "Please select an Excel file with .xlsm extension.")
-                return None
-            
-            return excel_path
-        else:
-            log(u"❌  User cancelled file selection")
-            return None
-            
-    except Exception as ex:
-        log(u"❌  Error prompting for Excel file: {0}".format(ex))
-        TaskDialog.Show("Error", "Error opening file dialog: {0}".format(ex))
-        return None
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Start up document and find Excel file
-# ─────────────────────────────────────────────────────────────────────────────
 uidoc = __revit__.ActiveUIDocument
 doc = uidoc.Document
 
+# Find Excel file
 EXCEL_PATH = find_excel_file(doc)
 if not EXCEL_PATH:
     TaskDialog.Show("Error", "No Excel file selected. Script will exit.")
     sys.exit()
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Read Excel data
-# ─────────────────────────────────────────────────────────────────────────────
 worksheets_data = read_excel_worksheets(EXCEL_PATH)
 if not worksheets_data:
     TaskDialog.Show("No Data", "No valid worksheets found to process.")
     sys.exit()
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Create TextNotes in Revit
-# ─────────────────────────────────────────────────────────────────────────────
-def delete_all_textnotes(doc):
-    """Delete all TextNotes from the current view."""
-    try:
-        # Get all TextNotes in the current view
-        text_notes = FilteredElementCollector(doc, doc.ActiveView.Id) \
-            .OfClass(TextNote) \
-            .ToElements()
-        
-        deleted_count = 0
-        if text_notes:
-            log(u"🗑️  Found {0} existing TextNotes to delete".format(len(text_notes)))
-            for note in text_notes:
-                doc.Delete(note.Id)
-                deleted_count += 1
-            log(u"✅  Deleted {0} existing TextNotes".format(deleted_count))
-        else:
-            log(u"ℹ️  No existing TextNotes found to delete")
-        
-        return deleted_count
-        
-    except Exception as ex:
-        log(u"⚠️  Error deleting TextNotes: {0}".format(ex))
-        return 0
 
 tx = Transaction(doc, "Create TextNotes from Excel")
 tx.Start()
@@ -343,19 +417,32 @@ try:
             else:
                 name = u"<Unnamed TextNoteType>"
 
-        log(u"   - {0}".format(name))
+        # log(u"   - {0}".format(name))
 
         # Match by that name
         if name == 'EWP_3.5mm Arrow Masking':
             title_type = t
         elif name == 'EWP_2.5mm Arrow':
             content_type = t
-
-    if not title_type or not content_type:
-        log(u"❌  Could not find the specified TextNoteTypes.")
-        tx.RollBack()
-        TaskDialog.Show("Error", "Could not find the specified TextNoteTypes.")
-        sys.exit()
+            
+    # If types not found, prompt user to select
+    if not title_type:
+        log(u"⚠️  'EWP_3.5mm Arrow' not found. Prompting user to select title type.")
+        title_type = select_text_note_type(text_note_types, "Title")
+        if not title_type:
+            log(u"❌  No title type selected.")
+            tx.RollBack()
+            TaskDialog.Show("Error", "No title text note type selected.")
+            sys.exit()
+    
+    if not content_type:
+        log(u"⚠️  'EWP_2.5mm Arrow' not found. Prompting user to select content type.")
+        content_type = select_text_note_type(text_note_types, "Content")
+        if not content_type:
+            log(u"❌  No content type selected.")
+            tx.RollBack()
+            TaskDialog.Show("Error", "No content text note type selected.")
+            sys.exit()
 
     # Validate and adjust text width for both types
     title_min_width = TextNote.GetMinimumAllowedWidth(doc, title_type.Id)
