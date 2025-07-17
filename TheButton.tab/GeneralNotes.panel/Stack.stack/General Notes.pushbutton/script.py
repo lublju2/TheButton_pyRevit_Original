@@ -137,6 +137,9 @@ COLUMN_WIDTH = 0.37             # Width of each column
 PAGE_HEIGHT = START_Y - BOTTOM_Y  # Calculate page height from coordinates
 TEXT_WIDTH = 0.3                # Width constraint for text notes
 
+# Abbreviations section fixed coordinates
+ABBREV_X = 11.181472982
+ABBREV_Y = 4.357636613
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Load Revit API
@@ -217,6 +220,12 @@ def calculate_text_note_height(text_note_type, text_content, text_width):
 def check_text_note_fits(current_y, text_height, bottom_boundary):
     """Check if a TextNote would fit within the page boundaries."""
     return (current_y - text_height) >= bottom_boundary
+
+def is_abbreviations_section(title):
+    """Check if a section is an abbreviations section based on title."""
+    abbrev_keywords = ['abbreviation', 'abbrev', 'acronym']
+    title_lower = title.lower()
+    return any(keyword in title_lower for keyword in abbrev_keywords)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper function to find the Excel file
@@ -364,7 +373,18 @@ try:
     current_column = 0
     created_notes = 0
 
+    # Separate abbreviations from regular sections
+    regular_sections = []
+    abbreviations_sections = []
+    
     for data in worksheets_data:
+        if is_abbreviations_section(data['title']):
+            abbreviations_sections.append(data)
+        else:
+            regular_sections.append(data)
+
+    # Process regular sections in columns
+    for data in regular_sections:
         # Calculate heights before placing
         title_height = calculate_text_note_height(title_type, data['title'], title_width)
         content_height = calculate_text_note_height(content_type, data['content'], content_width)
@@ -406,11 +426,44 @@ try:
 
         log(u"📝  Created notes for '{0}' at X: {1} Y: {2}".format(data['title'], current_x, current_y))
 
+    # Process abbreviations sections at fixed coordinates
+    abbrev_y = ABBREV_Y
+    for data in abbreviations_sections:
+        # Calculate heights for abbreviations
+        title_height = calculate_text_note_height(title_type, data['title'], title_width)
+        content_height = calculate_text_note_height(content_type, data['content'], content_width)
+        
+        # Create title TextNote at fixed position
+        title_point = XYZ(ABBREV_X, abbrev_y, 0)
+        title_options = TextNoteOptions()
+        title_options.TypeId = title_type.Id
+
+        title_note = TextNote.Create(doc, doc.ActiveView.Id, title_point, title_width, data['title'], title_options)
+        created_notes += 1
+        
+        # Adjust Y position after title
+        abbrev_y -= (title_height + SECTION_SPACING)
+
+        # Create content TextNote
+        content_point = XYZ(ABBREV_X, abbrev_y, 0)
+        content_options = TextNoteOptions()
+        content_options.TypeId = content_type.Id
+
+        content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'], content_options)
+        created_notes += 1
+        
+        # Adjust Y position for next abbreviations section
+        abbrev_y -= (content_height + INTER_SECTION_SPACING)
+
+        log(u"📝  Created abbreviations '{0}' at fixed position X: {1} Y: {2}".format(data['title'], ABBREV_X, abbrev_y))
+
     tx.Commit()
-    log(u"✅  Done. Created {0} TextNotes.".format(created_notes))
+    log(u"✅  Done. Created {0} TextNotes ({1} regular, {2} abbreviations).".format(
+        created_notes, len(regular_sections) * 2, len(abbreviations_sections) * 2))
     TaskDialog.Show(
         "Finished",
-        u"Created {0} TextNotes from {1} Excel tabs.".format(created_notes, len(worksheets_data))
+        u"Created {0} TextNotes from {1} Excel tabs ({2} regular sections, {3} abbreviations sections).".format(
+            created_notes, len(worksheets_data), len(regular_sections), len(abbreviations_sections))
     )
 
 except Exception as ex:
