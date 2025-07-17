@@ -76,7 +76,7 @@ START_Y = 4.440310784           # Starting Y position (top left corner)
 BOTTOM_Y = 2.794031111          # Bottom Y position of the page
 SECTION_SPACING = 0.002         # Small gap between title and content
 INTER_SECTION_SPACING = 0.1     # Gap between sections
-COLUMN_WIDTH = 0.4             # Width of each column
+COLUMN_WIDTH = 0.37             # Width of each column
 PAGE_HEIGHT = START_Y - BOTTOM_Y  # Calculate page height from coordinates
 TEXT_WIDTH = 0.3                # Width constraint for text notes
 
@@ -153,6 +153,11 @@ def calculate_text_note_height(text_note_type, text_content, text_width):
     except Exception as ex:
         log(u"⚠️  Error calculating TextNote height: {0}".format(ex))
         return 0.2  # fallback height
+
+
+def check_text_note_fits(current_y, text_height, bottom_boundary):
+    """Check if a TextNote would fit within the page boundaries."""
+    return (current_y - text_height) >= bottom_boundary
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -255,10 +260,18 @@ try:
     created_notes = 0
 
     for data in worksheets_data:
-        # Check if we need to start a new column
-        if current_y < BOTTOM_Y:
+        # Calculate heights before placing
+        title_height = calculate_text_note_height(title_type, data['title'], title_width)
+        content_height = calculate_text_note_height(content_type, data['content'], content_width)
+        
+        # Calculate total height needed for this section
+        total_section_height = title_height + SECTION_SPACING + content_height + INTER_SECTION_SPACING
+        
+        # Check if the entire section would fit, if not move to next column
+        if not check_text_note_fits(current_y, total_section_height, BOTTOM_Y):
             current_column += 1
             current_y = START_Y
+            log(u"📄  Moving to column {0} for section '{1}'".format(current_column + 1, data['title']))
 
         current_x = START_X + (current_column * COLUMN_WIDTH)
 
@@ -270,8 +283,7 @@ try:
         title_note = TextNote.Create(doc, doc.ActiveView.Id, title_point, title_width, data['title'], title_options)
         created_notes += 1
         
-        # Calculate height of title note and adjust Y position
-        title_height = calculate_text_note_height(title_type, data['title'], title_width)
+        # Adjust Y position after title
         current_y -= (title_height + SECTION_SPACING)
         log(u"📏  Title '{0}' height: {1}".format(data['title'], title_height))
 
@@ -283,8 +295,7 @@ try:
         content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'], content_options)
         created_notes += 1
         
-        # Calculate height of content note and adjust Y position for next section
-        content_height = calculate_text_note_height(content_type, data['content'], content_width)
+        # Adjust Y position for next section
         current_y -= (content_height + INTER_SECTION_SPACING)
         log(u"📏  Content height: {0}".format(content_height))
 
