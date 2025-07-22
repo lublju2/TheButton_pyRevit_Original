@@ -139,7 +139,7 @@ TEXT_WIDTH = 0.3                # Width constraint for text notes
 
 # Abbreviations section fixed coordinates
 ABBREV_X = 11.181472982
-ABBREV_Y = 4.357636613
+ABBREV_Y = 4.4015
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Load Revit API
