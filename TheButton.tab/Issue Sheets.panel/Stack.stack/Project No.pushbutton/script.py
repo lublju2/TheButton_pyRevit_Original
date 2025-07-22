@@ -13,14 +13,10 @@ How-To:
 1. Click the button on the ribbon.
 2. In the Save File dialog, select where to save the Issue Sheet.
 3. Wait for the script to finish — its path will be printed in the console.
-
+========================================
 **Important:**
 Make sure every sheet you want to include has the
 “Appears In Sheet List” flag enabled under Properties → Identity Data.
-========================================
-TODO:
-[FEATURE] – Preview changes before applying
-[ENHANCEMENT] – Allow scope filtering by view or category
 ========================================
 Author: AO"""
 

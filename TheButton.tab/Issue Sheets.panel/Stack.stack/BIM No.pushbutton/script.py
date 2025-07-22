@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals  # IronPython 2.7 compatibility
-
 __title__ = "Issue Sheet Generator with BIM No."
 __doc__ = """Version = 1.0.0
 Date    = July 2025
@@ -8,21 +7,16 @@ Date    = July 2025
 Description:
 Generates Issue Sheets using the BIM Number scheme.
 Collects all sheets marked "Appears In Sheet List" and populates an Excel template.
-
+========================================
 How-To:
 1. Click the button on the ribbon.
 2. Select save location in the dialog.
 3. Wait; the path will be printed in the console.
-
+========================================
 Important:
 Ensure each sheet has "Appears In Sheet List" enabled.
-
-TODO:
-[FEATURE] – Preview before saving
-[ENHANCEMENT] – Scope filtering by view/category
-
-Author: AO
-"""
+========================================
+Author: AO"""
 
 import os
 import shutil

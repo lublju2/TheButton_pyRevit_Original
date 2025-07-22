@@ -1,13 +1,29 @@
 # -*- coding: utf-8 -*-
-# Script: Replace TextNotes from Excel (Partial-Match)
-# Version: 1.2.0 – July 2025
-# Author: AO
+from __future__ import unicode_literals  # IronPython 2.7 compatibility
+__title__   = "Import from Excel"
+__doc__     = """Version = 1.2.0
+Date    = July 2025
+========================================
+Description:
+Reads the General Notes Excel file (make sure to use the template) and recreates all TextNotes in the active Revit view.
+========================================
+How‑To:
+1. Open the General Notes Drafting View or activate it on the General Notes Sheet.
+2. Click the “Import from Excel” button on the ribbon.
+3. In the file dialog, select your .xlsm workbook.
+4. The script will try to locate the default text‑note styles. If they are unavailable, you will be prompted to choose one from the list of available styles.
+5. Watch the console for progress updates, skipped tabs, and added sections. The notes should now update in the Drafting View.
+6. Review the updates on the General Notes Sheet.
 
-from __future__ import unicode_literals     # IronPython 2.7 compatibility
+Note: If you need more than one sheet, split the Excel file into two and run the script separately in two Drafting Views.
+========================================
+Author: PBM"""
+
 import clr
 import sys
 import os
 import re
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Simple console logger
@@ -25,10 +41,11 @@ from System import Type, Activator, Array
 from System.Runtime.InteropServices import Marshal
 import System.Reflection
 
+
 def read_excel_worksheets(path):
     """Read all worksheets and their data from Excel."""
     log(u"📂  Opening Excel workbook: {0}".format(path))
-    
+
     app = None
     wb = None
     worksheets_data = []
@@ -37,37 +54,37 @@ def read_excel_worksheets(path):
         # Create Excel application using COM
         excel_type = Type.GetTypeFromProgID("Excel.Application")
         app = Activator.CreateInstance(excel_type)
-        
+
         # Set properties using reflection for COM objects
-        app.GetType().InvokeMember("Visible", 
-                                   System.Reflection.BindingFlags.SetProperty, 
+        app.GetType().InvokeMember("Visible",
+                                   System.Reflection.BindingFlags.SetProperty,
                                    None, app, Array[object]([False]))
-        app.GetType().InvokeMember("DisplayAlerts", 
-                                   System.Reflection.BindingFlags.SetProperty, 
+        app.GetType().InvokeMember("DisplayAlerts",
+                                   System.Reflection.BindingFlags.SetProperty,
                                    None, app, Array[object]([False]))
-        
+
         # Get Workbooks collection and open file
-        workbooks = app.GetType().InvokeMember("Workbooks", 
-                                               System.Reflection.BindingFlags.GetProperty, 
+        workbooks = app.GetType().InvokeMember("Workbooks",
+                                               System.Reflection.BindingFlags.GetProperty,
                                                None, app, None)
-        wb = workbooks.GetType().InvokeMember("Open", 
-                                              System.Reflection.BindingFlags.InvokeMethod, 
+        wb = workbooks.GetType().InvokeMember("Open",
+                                              System.Reflection.BindingFlags.InvokeMethod,
                                               None, workbooks, Array[object]([path]))
-        
+
         # Get Worksheets collection
-        worksheets = wb.GetType().InvokeMember("Worksheets", 
-                                               System.Reflection.BindingFlags.GetProperty, 
+        worksheets = wb.GetType().InvokeMember("Worksheets",
+                                               System.Reflection.BindingFlags.GetProperty,
                                                None, wb, None)
-        count = worksheets.GetType().InvokeMember("Count", 
-                                                  System.Reflection.BindingFlags.GetProperty, 
+        count = worksheets.GetType().InvokeMember("Count",
+                                                  System.Reflection.BindingFlags.GetProperty,
                                                   None, worksheets, None)
-        
+
         for i in range(1, count + 1):
-            ws = worksheets.GetType().InvokeMember("Item", 
-                                                   System.Reflection.BindingFlags.GetProperty, 
+            ws = worksheets.GetType().InvokeMember("Item",
+                                                   System.Reflection.BindingFlags.GetProperty,
                                                    None, worksheets, Array[object]([i]))
-            sheet_name = ws.GetType().InvokeMember("Name", 
-                                                   System.Reflection.BindingFlags.GetProperty, 
+            sheet_name = ws.GetType().InvokeMember("Name",
+                                                   System.Reflection.BindingFlags.GetProperty,
                                                    None, ws, None)
 
             # Skip Splash Screen tab
@@ -76,22 +93,22 @@ def read_excel_worksheets(path):
                 continue
 
             # Check H1 cell
-            h1_range = ws.GetType().InvokeMember("Range", 
-                                                 System.Reflection.BindingFlags.GetProperty, 
+            h1_range = ws.GetType().InvokeMember("Range",
+                                                 System.Reflection.BindingFlags.GetProperty,
                                                  None, ws, Array[object](["H1"]))
-            h1_value = h1_range.GetType().InvokeMember("Value2", 
-                                                       System.Reflection.BindingFlags.GetProperty, 
+            h1_value = h1_range.GetType().InvokeMember("Value2",
+                                                       System.Reflection.BindingFlags.GetProperty,
                                                        None, h1_range, None)
             if h1_value != 'Yes':
                 log(u"⏭️  Skipping '{0}' tab (H1 = {1})".format(sheet_name, h1_value))
                 continue
 
             # Read J3 cell content
-            j3_range = ws.GetType().InvokeMember("Range", 
-                                                 System.Reflection.BindingFlags.GetProperty, 
+            j3_range = ws.GetType().InvokeMember("Range",
+                                                 System.Reflection.BindingFlags.GetProperty,
                                                  None, ws, Array[object](["J3"]))
-            j3_value = j3_range.GetType().InvokeMember("Value2", 
-                                                       System.Reflection.BindingFlags.GetProperty, 
+            j3_value = j3_range.GetType().InvokeMember("Value2",
+                                                       System.Reflection.BindingFlags.GetProperty,
                                                        None, j3_range, None)
             if j3_value:
                 worksheets_data.append({
@@ -108,13 +125,13 @@ def read_excel_worksheets(path):
         # Clean up COM objects
         try:
             if wb is not None:
-                wb.GetType().InvokeMember("Close", 
-                                          System.Reflection.BindingFlags.InvokeMethod, 
+                wb.GetType().InvokeMember("Close",
+                                          System.Reflection.BindingFlags.InvokeMethod,
                                           None, wb, Array[object]([False]))
                 Marshal.ReleaseComObject(wb)
             if app is not None:
-                app.GetType().InvokeMember("Quit", 
-                                           System.Reflection.BindingFlags.InvokeMethod, 
+                app.GetType().InvokeMember("Quit",
+                                           System.Reflection.BindingFlags.InvokeMethod,
                                            None, app, None)
                 Marshal.ReleaseComObject(app)
         except:
@@ -128,14 +145,14 @@ def read_excel_worksheets(path):
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Layout settings
-START_X = 8.883660091           # Starting X position (top left corner)
-START_Y = 4.440310784           # Starting Y position (top left corner)
-BOTTOM_Y = 2.794031111          # Bottom Y position of the page
-SECTION_SPACING = 0.002         # Small gap between title and content
-INTER_SECTION_SPACING = 0.05     # Gap between sections
-COLUMN_WIDTH = 0.37             # Width of each column
+START_X = 8.883660091  # Starting X position (top left corner)
+START_Y = 4.440310784  # Starting Y position (top left corner)
+BOTTOM_Y = 2.794031111  # Bottom Y position of the page
+SECTION_SPACING = 0.002  # Small gap between title and content
+INTER_SECTION_SPACING = 0.05  # Gap between sections
+COLUMN_WIDTH = 0.37  # Width of each column
 PAGE_HEIGHT = START_Y - BOTTOM_Y  # Calculate page height from coordinates
-TEXT_WIDTH = 0.3                # Width constraint for text notes
+TEXT_WIDTH = 0.3  # Width constraint for text notes
 
 # Abbreviations section fixed coordinates
 ABBREV_X = 11.181472982
@@ -159,8 +176,10 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog
 from System.Windows.Forms import OpenFileDialog, DialogResult
-from System.Windows.Forms import Form, Label, ComboBox, Button, DialogResult as WinFormsDialogResult, FormStartPosition, ComboBoxStyle
+from System.Windows.Forms import Form, Label, ComboBox, Button, DialogResult as WinFormsDialogResult, FormStartPosition, \
+    ComboBoxStyle
 from System.Drawing import Size, Point
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper functions
@@ -168,6 +187,7 @@ from System.Drawing import Size, Point
 
 def find_excel_file(doc):
     return prompt_for_excel_file()
+
 
 def prompt_for_excel_file():
     """Prompt user to select the Excel file."""
@@ -177,29 +197,30 @@ def prompt_for_excel_file():
         dialog.Filter = "Excel Files (*.xlsm)|*.xlsm|All Files (*.*)|*.*"
         dialog.FilterIndex = 1
         dialog.Multiselect = False
-        
+
         if dialog.ShowDialog() == DialogResult.OK:
             excel_path = dialog.FileName
             log(u"📁  User selected Excel file: {0}".format(excel_path))
-            
+
             # Validate the selected file
             if not os.path.exists(excel_path):
                 TaskDialog.Show("Error", "Selected file does not exist.")
                 return None
-            
+
             if not excel_path.lower().endswith('.xlsm'):
                 TaskDialog.Show("Error", "Please select an Excel file with .xlsm extension.")
                 return None
-            
+
             return excel_path
         else:
             log(u"❌  User cancelled file selection")
             return None
-            
+
     except Exception as ex:
         log(u"❌  Error prompting for Excel file: {0}".format(ex))
         TaskDialog.Show("Error", "Error opening file dialog: {0}".format(ex))
         return None
+
 
 def delete_all_textnotes(doc):
     """Delete all TextNotes from the current view."""
@@ -208,7 +229,7 @@ def delete_all_textnotes(doc):
         text_notes = FilteredElementCollector(doc, doc.ActiveView.Id) \
             .OfClass(TextNote) \
             .ToElements()
-        
+
         deleted_count = 0
         if text_notes:
             log(u"🗑️  Found {0} existing TextNotes to delete".format(len(text_notes)))
@@ -218,12 +239,13 @@ def delete_all_textnotes(doc):
             log(u"✅  Deleted {0} existing TextNotes".format(deleted_count))
         else:
             log(u"ℹ️  No existing TextNotes found to delete")
-        
+
         return deleted_count
-        
+
     except Exception as ex:
         log(u"⚠️  Error deleting TextNotes: {0}".format(ex))
         return 0
+
 
 def select_text_note_type(available_types, type_purpose):
     """Show a dialog to let user select a text note type."""
@@ -233,19 +255,19 @@ def select_text_note_type(available_types, type_purpose):
         form.Text = "Select {0} Text Note Type".format(type_purpose)
         form.Size = Size(450, 150)
         form.StartPosition = FormStartPosition.CenterParent
-        
+
         # Create label
         label = Label()
         label.Text = "Select {0} text note type:".format(type_purpose)
         label.Location = Point(10, 10)
         label.Size = Size(400, 20)
-        
+
         # Create combo box
         combo = ComboBox()
         combo.Location = Point(10, 35)
         combo.Size = Size(415, 25)
         combo.DropDownStyle = ComboBoxStyle.DropDownList
-        
+
         # Populate combo box with type names
         type_names = []
         for t in available_types:
@@ -258,27 +280,27 @@ def select_text_note_type(available_types, type_purpose):
                 else:
                     name = u"<Unnamed TextNoteType>"
             type_names.append(name)
-        
+
         for name in type_names:
             combo.Items.Add(name)
-        
+
         if combo.Items.Count > 0:
             combo.SelectedIndex = 0
-        
+
         # Create OK button
         ok_button = Button()
         ok_button.Text = "OK"
         ok_button.Location = Point(270, 70)
         ok_button.Size = Size(75, 25)
         ok_button.DialogResult = WinFormsDialogResult.OK
-        
+
         # Create Cancel button
         cancel_button = Button()
         cancel_button.Text = "Cancel"
         cancel_button.Location = Point(350, 70)
         cancel_button.Size = Size(75, 25)
         cancel_button.DialogResult = WinFormsDialogResult.Cancel
-        
+
         # Add controls to form
         form.Controls.Add(label)
         form.Controls.Add(combo)
@@ -286,23 +308,24 @@ def select_text_note_type(available_types, type_purpose):
         form.Controls.Add(cancel_button)
         form.AcceptButton = ok_button
         form.CancelButton = cancel_button
-        
+
         # Show dialog
         result = form.ShowDialog()
-        
+
         if result == WinFormsDialogResult.OK and combo.SelectedIndex >= 0:
             selected_name = combo.SelectedItem.ToString()
             # Find the corresponding TextNoteType
             for i, t in enumerate(available_types):
                 if type_names[i] == selected_name:
                     return t
-        
+
         return None
-        
+
     except Exception as ex:
         log(u"❌  Error in text note type selection dialog: {0}".format(ex))
         return None
-    
+
+
 def calculate_text_note_height(text_note_type, text_content, text_width):
     """Calculate the height of a TextNote based on its type and content, processing paragraph by paragraph."""
     # Cannot simply be extracted from the TextNote because that information is not available until the transaction is committed. Therefore we need to estimate it based on the TextNoteType parameters and the content.
@@ -314,24 +337,24 @@ def calculate_text_note_height(text_note_type, text_content, text_width):
         else:
             log(u"⚠️  No TEXT_SIZE parameter found for TextNoteType '{0}'".format(text_note_type.Name))
             text_size = 0.1  # fallback text size
-        
+
         # Estimate line height including spacing
         line_height = text_size * 1.6
-        
+
         # Estimated width of each character
         avg_char_width = text_size * 0.55
-        
-        # Calculate approximate characters per line 
+
+        # Calculate approximate characters per line
         chars_per_line = max(1, int(text_width / avg_char_width))
-        
+
         # Split text into paragraphs
         if text_content:
             paragraphs = text_content.split('\n')
         else:
             paragraphs = ['']
-        
+
         total_lines = 0
-        
+
         # Calculate lines for each paragraph
         for paragraph in paragraphs:
             if paragraph.strip():  # Non-empty paragraph
@@ -343,15 +366,15 @@ def calculate_text_note_height(text_note_type, text_content, text_width):
             else:  # Empty paragraph (line break)
                 total_lines += 1
                 # log(u"📏  Empty paragraph (line break): 1 line")
-        
+
         # Calculate total height
         total_height = total_lines * line_height
-        
+
         # log(u"📏  Text size: {0}, Line height: {1}, Chars per line: {2}, Total lines: {3}, Total height: {4}".format(
         #     text_size, line_height, chars_per_line, total_lines, total_height))
-        
+
         return total_height
-        
+
     except Exception as ex:
         log(u"⚠️  Error calculating TextNote height: {0}".format(ex))
         return 0.2  # fallback height
@@ -361,11 +384,13 @@ def check_text_note_fits(current_y, text_height, bottom_boundary):
     """Check if a TextNote would fit within the page boundaries."""
     return (current_y - text_height) >= bottom_boundary
 
+
 def is_abbreviations_section(title):
     """Check if a section is an abbreviations section based on title."""
     abbrev_keywords = ['abbreviation', 'abbrev', 'acronym']
     title_lower = title.lower()
     return any(keyword in title_lower for keyword in abbrev_keywords)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main logic
@@ -386,14 +411,13 @@ if not worksheets_data:
     TaskDialog.Show("No Data", "No valid worksheets found to process.")
     sys.exit()
 
-
 tx = Transaction(doc, "Create TextNotes from Excel")
 tx.Start()
 
 try:
     # Delete all existing TextNotes first
     delete_all_textnotes(doc)
-    
+
     # Get text note types (styles)
     title_type = None
     content_type = None
@@ -424,7 +448,7 @@ try:
             title_type = t
         elif name == 'EWP_2.5mm Arrow':
             content_type = t
-            
+
     # If types not found, prompt user to select
     if not title_type:
         log(u"⚠️  'EWP_3.5mm Arrow' not found. Prompting user to select title type.")
@@ -434,7 +458,7 @@ try:
             tx.RollBack()
             TaskDialog.Show("Error", "No title text note type selected.")
             sys.exit()
-    
+
     if not content_type:
         log(u"⚠️  'EWP_2.5mm Arrow' not found. Prompting user to select content type.")
         content_type = select_text_note_type(text_note_types, "Content")
@@ -448,11 +472,11 @@ try:
     title_min_width = TextNote.GetMinimumAllowedWidth(doc, title_type.Id)
     title_max_width = TextNote.GetMaximumAllowedWidth(doc, title_type.Id)
     title_width = max(title_min_width, min(TEXT_WIDTH, title_max_width))
-    
+
     content_min_width = TextNote.GetMinimumAllowedWidth(doc, content_type.Id)
     content_max_width = TextNote.GetMaximumAllowedWidth(doc, content_type.Id)
     content_width = max(content_min_width, min(TEXT_WIDTH, content_max_width))
-    
+
     # log(u"📏  Title width: {0} (min: {1}, max: {2})".format(title_width, title_min_width, title_max_width))
     # log(u"📏  Content width: {0} (min: {1}, max: {2})".format(content_width, content_min_width, content_max_width))
 
@@ -463,7 +487,7 @@ try:
     # Separate abbreviations from regular sections
     regular_sections = []
     abbreviations_sections = []
-    
+
     for data in worksheets_data:
         if is_abbreviations_section(data['title']):
             abbreviations_sections.append(data)
@@ -475,10 +499,10 @@ try:
         # Calculate heights before placing
         title_height = calculate_text_note_height(title_type, data['title'], title_width)
         content_height = calculate_text_note_height(content_type, data['content'], content_width)
-        
+
         # Calculate total height needed for this section
         total_section_height = title_height + SECTION_SPACING + content_height + INTER_SECTION_SPACING
-        
+
         # Check if the entire section would fit, if not move to next column
         if not check_text_note_fits(current_y, total_section_height, BOTTOM_Y):
             current_column += 1
@@ -494,7 +518,7 @@ try:
 
         title_note = TextNote.Create(doc, doc.ActiveView.Id, title_point, title_width, data['title'], title_options)
         created_notes += 1
-        
+
         # Adjust Y position after title
         current_y -= (title_height + SECTION_SPACING)
         # log(u"📏  Title '{0}' height: {1}".format(data['title'], title_height))
@@ -504,9 +528,10 @@ try:
         content_options = TextNoteOptions()
         content_options.TypeId = content_type.Id
 
-        content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'], content_options)
+        content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'],
+                                       content_options)
         created_notes += 1
-        
+
         # Adjust Y position for next section
         current_y -= (content_height + INTER_SECTION_SPACING)
         # log(u"📏  Content height: {0}".format(content_height))
@@ -519,7 +544,7 @@ try:
         # Calculate heights for abbreviations
         title_height = calculate_text_note_height(title_type, data['title'], title_width)
         content_height = calculate_text_note_height(content_type, data['content'], content_width)
-        
+
         # Create title TextNote at fixed position
         title_point = XYZ(ABBREV_X, abbrev_y, 0)
         title_options = TextNoteOptions()
@@ -527,7 +552,7 @@ try:
 
         title_note = TextNote.Create(doc, doc.ActiveView.Id, title_point, title_width, data['title'], title_options)
         created_notes += 1
-        
+
         # Adjust Y position after title
         abbrev_y -= (title_height + SECTION_SPACING)
 
@@ -536,9 +561,10 @@ try:
         content_options = TextNoteOptions()
         content_options.TypeId = content_type.Id
 
-        content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'], content_options)
+        content_note = TextNote.Create(doc, doc.ActiveView.Id, content_point, content_width, data['content'],
+                                       content_options)
         created_notes += 1
-        
+
         # Adjust Y position for next abbreviations section
         abbrev_y -= (content_height + INTER_SECTION_SPACING)
 
@@ -559,6 +585,7 @@ except Exception as ex:
 
     # Get full traceback
     import traceback
+
     tb = traceback.format_exc()
 
     log(u"❌  Error creating TextNotes: {0}".format(tb))

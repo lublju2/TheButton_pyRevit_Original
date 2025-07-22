@@ -9,18 +9,17 @@ Interactive UI tool for managing **project-specific exception**
 strings used by the Change Register workflow. It lets you add,
 edit or delete literals that must retain their exact capitalization
 when applying sentence-case globally.
-________________________________________________________________
+========================================
 How-To:
 1. Click the button on the ribbon.
 2. Choose Add, Edit or Delete in the list picker.
 3. Follow the prompts to modify your exception list.
 4. Confirm changes in the popup messages.
 5. Run "Convert to Lowercase" to apply the changes. 
-________________________________________________________________
+========================================
 TODO:
 [FEATURE] – Bulk import/export of exception lists
-________________________________________________________________
-
+========================================
 Author: AO"""
 
 """
